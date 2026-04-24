@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="text-scale" content="scale" />
+		%sveltekit.head%
+		<style>
+			:root {
+				--bg: #0d0d0f;
+				--surface: #141416;
+				--surface2: #1c1c20;
+				--border: #2a2a30;
+				--border-hover: #3d3d45;
+				--text: #f0f0f4;
+				--text-dim: #6b6b78;
+				--text-muted: #54545f;
+				--accent: #fc3f1d;
+				--accent2: #ffcc00;
+				--blue: #4a90e2;
+				--green: #4caf7a;
+				--radius: 16px;
+				--radius-sm: 10px;
+			}
+
+			* { box-sizing: border-box; margin: 0; padding: 0; }
+
+			body {
+				background: var(--bg);
+				color: var(--text);
+				font-family: 'JetBrains Mono', monospace;
+				min-height: 100vh;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				position: relative;
+			}
+
+			body::before {
+				content: ''; position: fixed; inset: 0;
+				background: radial-gradient(ellipse 600px 400px at 20% 10%, rgba(252,63,29,0.04) 0%, transparent 70%),
+							radial-gradient(ellipse 500px 500px at 80% 90%, rgba(74,144,226,0.04) 0%, transparent 70%);
+				pointer-events: none;
+			}
+
+			/* Эффект ripple (добавляется через JS) */
+			.ripple {
+				position: absolute; border-radius: 50%; background: rgba(255,255,255,0.07);
+				transform: scale(0); animation: rippleAnim 0.5s ease-out forwards; pointer-events: none;
+			}
+			@keyframes -global-rippleAnim { to { transform: scale(4); opacity: 0; } }
+
+			/* Свечение калькулятора после оплаты (добавляется через JS) */
+			.paid-glow {
+				animation: calPulse 1s ease;
+			}
+		</style>
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
