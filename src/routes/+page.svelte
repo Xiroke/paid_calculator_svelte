@@ -205,7 +205,7 @@
 				<label class="agreement-label">
 					<input type="checkbox" bind:checked={isAgreed} />
 					<span class="agreement-text">
-						Нажимая кнопку, вы принимаете условия <a href="/offer/offer" target="_blank">Публичной оферты</a>
+						Нажимая кнопку, вы принимаете условия <a href="/offer" target="_blank">Публичной оферты</a>
 						и даете согласие на обработку данных согласно <a href="/privacy" target="_blank">Политике конфиденциальности</a>.
 					</span>
 				</label>
