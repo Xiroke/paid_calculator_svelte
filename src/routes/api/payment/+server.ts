@@ -10,15 +10,15 @@ const PLANS = {
 
 export const POST: RequestHandler = async ({ request, url }) => {
 	try {
-		const { planId } = await request.json();
-		const plan = PLANS[planId as keyof typeof PLANS];
+		const { planId, isTelegram } = await request.json();
+       	const plan = PLANS[planId as keyof typeof PLANS];
 
-		if (!plan) {
-			return json({ error: 'Invalid plan' }, { status: 400 });
-		}
+       	if (!plan) return json({ error: 'Invalid plan' }, { status: 400 });
 
-		// Формируем return_url (на ту же страницу, где был пользователь)
-		const returnUrl = `${url.origin}/?payment=success&plan=${planId}`;
+       // Автоматический выбор URL возврата
+       	const returnUrl = isTelegram
+          ? `https://t.me/calculator_pro47_bot/calc?startapp=success_${planId}` // Для ТГ
+          : `${url.origin}/?payment=success&plan=${planId}`; // Для сайта
 
 		const response = await fetch('https://api.yookassa.ru/v3/payments', {
 			method: 'POST',

@@ -31,32 +31,60 @@
 	};
 
 	onMount(() => {
-		// Проверяем, вернулся ли пользователь после успешной оплаты
-		const paymentStatus = $page.url.searchParams.get('payment');
-		const planId = $page.url.searchParams.get('plan');
-		const savedResult = localStorage.getItem('pending_calculation');
+		const handleSuccessfulPayment = (purchasedPlanId) => {
+			const savedResult = localStorage.getItem('pending_calculation');
 
-		if (paymentStatus === 'success' && planId && savedResult) {
-			const plan = PLANS[planId];
-			const numResult = parseFloat(savedResult);
-			
-			const err = (Math.random() * 2 - 1) * (Math.abs(numResult) * plan.error);
-			const final = plan.error === 0 ? numResult : Math.round((numResult + err) * 10000) / 10000;
+			if (purchasedPlanId && savedResult) {
+			   const plan = PLANS[purchasedPlanId];
+			   if (!plan) return; // Защита от неверного ID тарифа
 
-			currentVal = String(final);
-			updateDisplay(currentVal);
-			
-			activePlan = plan;
-			successPlan = plan;
-			successResult = currentVal;
-			showSuccess = true;
-			
-			localStorage.removeItem('pending_calculation');
-			setTimeout(() => (showSuccess = false), 3000);
+			   const numResult = parseFloat(savedResult);
 
-			if (calcNode) {
-				calcNode.classList.add('paid-glow');
-				setTimeout(() => calcNode.classList.remove('paid-glow'), 1000);
+			   const err = (Math.random() * 2 - 1) * (Math.abs(numResult) * plan.error);
+			   const final = plan.error === 0 ? numResult : Math.round((numResult + err) * 10000) / 10000;
+
+			   currentVal = String(final);
+			   updateDisplay(currentVal);
+
+			   activePlan = plan;
+			   successPlan = plan;
+			   successResult = currentVal;
+			   showSuccess = true;
+
+			   localStorage.removeItem('pending_calculation');
+			   setTimeout(() => (showSuccess = false), 3000);
+
+			   if (calcNode) {
+				  calcNode.classList.add('paid-glow');
+				  setTimeout(() => calcNode.classList.remove('paid-glow'), 1000);
+			   }
+			}
+		};
+
+		let isPaymentHandled = false;
+
+		// 2. Сначала проверяем, находимся ли мы в Telegram Mini App
+		const tg = window?.Telegram?.WebApp;
+		if (tg && tg.initData) {
+			tg.ready();
+
+			// Достаем параметр, который мы передали в returnUrl (например, success_pro)
+			const startParam = tg.initDataUnsafe?.start_param;
+
+			if (startParam && startParam.startsWith('success_')) {
+				const planId = startParam.split('_')[1]; // Получаем само название тарифа
+				handleSuccessfulPayment(planId);
+				isPaymentHandled = true;
+			}
+		}
+
+		// 3. Если это не Telegram (или оплаты там не было), проверяем обычный URL сайта
+		if (!isPaymentHandled) {
+			const paymentStatus = $page.url.searchParams.get('payment');
+			const planId = $page.url.searchParams.get('plan');
+
+			if (paymentStatus === 'success' && planId) {
+				handleSuccessfulPayment(planId);
 			}
 		}
 	});
@@ -123,6 +151,8 @@
 		if (!selectedPlan || !isAgreed) return;
 		isProcessing = true;
 
+		const isTelegram = !!window.Telegram?.WebApp?.initData;
+
 		try {
 			// Сохраняем результат вычисления, чтобы показать его после возврата с оплаты
 			localStorage.setItem('pending_calculation', String(pendingResult));
@@ -130,13 +160,20 @@
 			const response = await fetch('/api/payment', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ planId: selectedPlan })
+				body: JSON.stringify({
+					planId: selectedPlan,
+					isTelegram: isTelegram
+				})
 			});
 
 			const data = await response.json();
 
 			if (data.confirmationUrl) {
-				window.location.href = data.confirmationUrl;
+				  if (isTelegram) {
+					  window.Telegram.WebApp.openLink(data.confirmationUrl);
+				  } else {
+					 window.location.href = data.confirmationUrl;
+				  }
 			} else {
 				alert('Ошибка при создании платежа: ' + (data.error || 'неизвестная ошибка'));
 				isProcessing = false;
@@ -147,7 +184,6 @@
 			isProcessing = false;
 		}
 	}
-
 </script>
 
 <svelte:head>
