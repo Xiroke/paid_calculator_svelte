@@ -1,4 +1,7 @@
 <script>
+	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+
 	// === STATE ===
 	let displayValue = $state('0');
 	let historyText = $state('');
@@ -26,6 +29,37 @@
 		pro: { id: 'pro', name: 'Pro', error: 0.05, price: '7', emoji: '🔵', color: '#4a90e2', class: 'pro' },
 		giga: { id: 'giga', name: 'GigaChat', error: 0, price: '9', emoji: '✦', color: '#4caf7a', class: 'giga' }
 	};
+
+	onMount(() => {
+		// Проверяем, вернулся ли пользователь после успешной оплаты
+		const paymentStatus = $page.url.searchParams.get('payment');
+		const planId = $page.url.searchParams.get('plan');
+		const savedResult = localStorage.getItem('pending_calculation');
+
+		if (paymentStatus === 'success' && planId && savedResult) {
+			const plan = PLANS[planId];
+			const numResult = parseFloat(savedResult);
+			
+			const err = (Math.random() * 2 - 1) * (Math.abs(numResult) * plan.error);
+			const final = plan.error === 0 ? numResult : Math.round((numResult + err) * 10000) / 10000;
+
+			currentVal = String(final);
+			updateDisplay(currentVal);
+			
+			activePlan = plan;
+			successPlan = plan;
+			successResult = currentVal;
+			showSuccess = true;
+			
+			localStorage.removeItem('pending_calculation');
+			setTimeout(() => (showSuccess = false), 3000);
+
+			if (calcNode) {
+				calcNode.classList.add('paid-glow');
+				setTimeout(() => calcNode.classList.remove('paid-glow'), 1000);
+			}
+		}
+	});
 
 	// === ACTIONS ===
 	function btnEffects(node) {
@@ -85,36 +119,35 @@
 		isModalOpen = true;
 	}
 
-	function processPay() {
+	async function processPay() {
 		if (!selectedPlan || !isAgreed) return;
 		isProcessing = true;
-		setTimeout(() => {
-			const plan = PLANS[selectedPlan];
-			const err = (Math.random() * 2 - 1) * (Math.abs(pendingResult) * plan.error);
-			const final = plan.error === 0 ? pendingResult : Math.round((pendingResult + err) * 10000) / 10000;
 
-			currentVal = String(final);
+		try {
+			// Сохраняем результат вычисления, чтобы показать его после возврата с оплаты
+			localStorage.setItem('pending_calculation', String(pendingResult));
 
-			prevVal = null;
-			operator = null;
-			waitingForNext = true;
+			const response = await fetch('/api/payment', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ planId: selectedPlan })
+			});
 
-			updateDisplay(currentVal);
-			activePlan = plan;
-			successPlan = plan;
-			successResult = currentVal;
-			showSuccess = true;
-			isProcessing = false;
-			isModalOpen = false;
+			const data = await response.json();
 
-			setTimeout(() => (showSuccess = false), 1800);
-
-			if (calcNode) {
-				calcNode.classList.add('paid-glow');
-				setTimeout(() => calcNode.classList.remove('paid-glow'), 1000);
+			if (data.confirmationUrl) {
+				window.location.href = data.confirmationUrl;
+			} else {
+				alert('Ошибка при создании платежа: ' + (data.error || 'неизвестная ошибка'));
+				isProcessing = false;
 			}
-		}, 900);
+		} catch (err) {
+			console.error('Payment error:', err);
+			alert('Произошла ошибка при связи с сервером оплаты.');
+			isProcessing = false;
+		}
 	}
+
 </script>
 
 <svelte:head>
